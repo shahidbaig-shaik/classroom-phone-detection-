@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phone Detection Monitor</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 10px;
+        }
+        .status-panel {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .status-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            border-left: 4px solid #007bff;
+        }
+        .status-card.alert {
+            border-left-color: #dc3545;
+            background: #fff5f5;
+        }
+        .status-card.success {
+            border-left-color: #28a745;
+            background: #f8fff9;
+        }
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+        .btn-primary {
+            background: #007bff;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #0056b3;
+        }
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        .btn-success:hover {
+            background: #218838;
+        }
+        .video-container {
+            position: relative;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        #video {
+            max-width: 100%;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            background: #000;
+            min-height: 300px;
+            border: 2px solid #ddd;
+        }
+        .detection-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+        }
+        .detection-box {
+            position: absolute;
+            border: 3px solid #ff4444;
+            background: rgba(255, 68, 68, 0.2);
+            border-radius: 4px;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007bff;
+        }
+        .log-console {
+            background: #1e1e1e;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .log-entry {
+            margin: 5px 0;
+            padding: 2px 0;
+        }
+        .log-entry.info { color: #00ff00; }
+        .log-entry.warning { color: #ffff00; }
+        .log-entry.error { color: #ff4444; }
+        .log-entry.alert { color: #ff8800; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📱 Phone Detection Monitor</h1>
+            <p>Real-time classroom phone use detection system</p>
+        </div>
+
+        <div class="status-panel">
+            <div class="status-card" id="phone-status">
+                <h3>Phone Status</h3>
+                <div class="stat-value" id="status-text">No Detection</div>
+            </div>
+            <div class="status-card" id="streak-card">
+                <h3>Current Streak</h3>
+                <div class="stat-value" id="streak-value">0</div>
+            </div>
+            <div class="status-card" id="threshold-card">
+                <h3>Threshold Met</h3>
+                <div class="stat-value" id="threshold-value">No</div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="btn btn-primary" id="start-camera">📹 Start Camera</button>
+            <button class="btn btn-danger" id="stop-camera">⏹️ Stop Camera</button>
+            <button class="btn btn-success" id="test-detection">🧪 Test Mode</button>
+            <button class="btn btn-primary" id="start-detection">▶️ Start Detection</button>
+            <button class="btn btn-danger" id="stop-detection">⏸️ Stop All</button>
+        </div>
+
+        <div class="video-container">
+            <video id="video" autoplay muted playsinline></video>
+            <canvas class="detection-overlay" id="overlay"></canvas>
+            <div id="camera-placeholder" style="display: none; padding: 40px; color: #666; font-style: italic;">
+                📹 Camera not started. Click "Start Camera" to begin.
+            </div>
+        </div>
+
+        <div class="stats">
+            <div class="stat-card">
+                <h4>FPS</h4>
+                <div class="stat-value" id="fps">0</div>
+            </div>
+            <div class="stat-card">
+                <h4>Latency</h4>
+                <div class="stat-value" id="latency">0ms</div>
+            </div>
+            <div class="stat-card">
+                <h4>Detections</h4>
+                <div class="stat-value" id="detection-count">0</div>
+            </div>
+        </div>
+
+        <div class="log-console" id="log-console">
+            <div class="log-entry info">System initialized</div>
+            <div class="log-entry info">Ready to start detection</div>
+        </div>
+    </div>
+
+    <script>
+        class PhoneDetectionUI {
+            constructor() {
+                this.video = document.getElementById('video');
+                this.overlay = document.getElementById('overlay');
+                this.cameraPlaceholder = document.getElementById('camera-placeholder');
+                this.stream = null;
+                this.detectionInterval = null;
+                this.lastFrameTime = 0;
+                this.frameCount = 0;
+                this.fps = 0;
+                this.serverUrl = 'http://localhost:8000';
+                
+                this.initializeUI();
+                this.setupEventListeners();
+                this.checkServerStatus();
+                
+                // Show placeholder initially
+                this.showCameraPlaceholder();
+            }
+
+            initializeUI() {
+                // Set canvas size to match video
+                this.overlay.width = 640;
+                this.overlay.height = 480;
+                
+                // Hide video initially, show placeholder
+                this.video.style.display = 'none';
+                this.overlay.style.display = 'none';
+            }
+            
+            showCameraPlaceholder() {
+                this.cameraPlaceholder.style.display = 'block';
+                this.video.style.display = 'none';
+                this.overlay.style.display = 'none';
+            }
+            
+            hideCameraPlaceholder() {
+                this.cameraPlaceholder.style.display = 'none';
+                this.video.style.display = 'block';
+                this.overlay.style.display = 'block';
+            }
+
+            setupEventListeners() {
+                document.getElementById('start-camera').addEventListener('click', () => this.startCamera());
+                document.getElementById('stop-camera').addEventListener('click', () => this.stopCamera());
+                document.getElementById('test-detection').addEventListener('click', () => this.startTestMode());
+                document.getElementById('start-detection').addEventListener('click', () => this.startDetection());
+                document.getElementById('stop-detection').addEventListener('click', () => this.stopDetection());
+            }
+
+            async checkServerStatus() {
+                try {
+                    const response = await fetch(`${this.serverUrl}/status`);
+                    if (response.ok) {
+                        this.log('Server connection established', 'info');
+                    } else {
+                        this.log('Server connection failed', 'error');
+                    }
+                } catch (error) {
+                    this.log('Cannot connect to server', 'error');
+                }
+                
+                // Check camera permissions
+                this.checkCameraPermissions();
+            }
+            
+            async checkCameraPermissions() {
+                try {
+                    if (navigator.permissions && navigator.permissions.query) {
+                        const permission = await navigator.permissions.query({ name: 'camera' });
+                        this.log(`Camera permission: ${permission.state}`, 'info');
+                        
+                        if (permission.state === 'denied') {
+                            this.log('Camera access denied. Please enable camera permissions in your browser.', 'warning');
+                        }
+                    }
+                } catch (error) {
+                    this.log('Could not check camera permissions', 'info');
+                }
+            }
+
+            async startCamera() {
+                try {
+                    this.log('Requesting camera access...', 'info');
+                    
+                    // Check if getUserMedia is supported
+                    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                        throw new Error('Camera API not supported in this browser');
+                    }
+                    
+                    // Request camera with more flexible constraints
+                    this.stream = await navigator.mediaDevices.getUserMedia({ 
+                        video: { 
+                            width: { ideal: 640 },
+                            height: { ideal: 480 },
+                            facingMode: 'user' // Use front camera
+                        } 
+                    });
+                    
+                    this.video.srcObject = this.stream;
+                    
+                    // Wait for video to be ready
+                    this.video.onloadedmetadata = () => {
+                        this.log(`Camera started: ${this.video.videoWidth}x${this.video.videoHeight}`, 'info');
+                        // Update overlay size to match video
+                        this.overlay.width = this.video.videoWidth;
+                        this.overlay.height = this.video.videoHeight;
+                        
+                        // Hide placeholder and show video
+                        this.hideCameraPlaceholder();
+                    };
+                    
+                    this.video.onerror = (error) => {
+                        this.log(`Video error: ${error}`, 'error');
+                    };
+                    
+                } catch (error) {
+                    this.log(`Camera error: ${error.message}`, 'error');
+                    
+                    if (error.name === 'NotAllowedError') {
+                        this.log('Camera access denied. Please allow camera permissions and try again.', 'warning');
+                    } else if (error.name === 'NotFoundError') {
+                        this.log('No camera found. Please check your camera connection.', 'warning');
+                    } else if (error.name === 'NotSupportedError') {
+                        this.log('Camera not supported in this browser.', 'warning');
+                    }
+                }
+            }
+
+            stopCamera() {
+                if (this.stream) {
+                    this.stream.getTracks().forEach(track => track.stop());
+                    this.video.srcObject = null;
+                    this.stream = null;
+                    this.log('Camera stopped', 'info');
+                    
+                    // Show placeholder again
+                    this.showCameraPlaceholder();
+                }
+            }
+
+            startTestMode() {
+                // Simulate detection for demo purposes
+                this.log('Starting test mode with mock detections', 'info');
+                this.simulateDetection();
+            }
+            
+            simulateDetection() {
+                // Simulate phone detection for demo
+                const mockResult = {
+                    isUsingPhone: true,
+                    detections: [{
+                        class: "phone",
+                        confidence: 0.85,
+                        bbox: { x: 100, y: 100, w: 80, h: 120 }
+                    }],
+                    ts: Date.now()
+                };
+                
+                this.updateUI(mockResult);
+                this.drawDetections(mockResult.detections);
+                
+                // Simulate detection every 2 seconds
+                this.testInterval = setInterval(() => {
+                    const newResult = {
+                        ...mockResult,
+                        ts: Date.now(),
+                        isUsingPhone: Math.random() > 0.3 // 70% chance of phone detection
+                    };
+                    this.updateUI(newResult);
+                    this.drawDetections(newResult.detections);
+                }, 2000);
+            }
+
+            startDetection() {
+                if (!this.stream) {
+                    this.log('Please start camera first', 'warning');
+                    return;
+                }
+                
+                this.log('Starting real-time detection', 'info');
+                this.detectionInterval = setInterval(() => {
+                    this.processFrame();
+                }, 100); // Process every 100ms
+            }
+
+            stopDetection() {
+                if (this.detectionInterval) {
+                    clearInterval(this.detectionInterval);
+                    this.detectionInterval = null;
+                    this.log('Detection stopped', 'info');
+                }
+                
+                // Also stop test mode if running
+                if (this.testInterval) {
+                    clearInterval(this.testInterval);
+                    this.testInterval = null;
+                    this.log('Test mode stopped', 'info');
+                }
+            }
+
+            async processFrame() {
+                if (this.video.readyState !== this.video.HAVE_ENOUGH_DATA) return;
+
+                const startTime = performance.now();
+                
+                try {
+                    // Create canvas to capture frame
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    canvas.width = this.video.videoWidth;
+                    canvas.height = this.video.videoHeight;
+                    
+                    // Draw video frame to canvas
+                    ctx.drawImage(this.video, 0, 0);
+                    
+                    // Convert to base64
+                    const frameData = canvas.toDataURL('image/jpeg', 0.8);
+                    
+                    // Send to server
+                    const response = await fetch(`${this.serverUrl}/detect`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ frame: frameData })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    // Update UI
+                    this.updateUI(result);
+                    
+                    // Calculate performance metrics
+                    const endTime = performance.now();
+                    this.updatePerformanceMetrics(endTime - startTime);
+                    
+                } catch (error) {
+                    this.log(`Frame processing error: ${error.message}`, 'error');
+                }
+            }
+
+            updateUI(result) {
+                // Update status
+                const statusText = document.getElementById('status-text');
+                const statusCard = document.getElementById('phone-status');
+                
+                if (result.isUsingPhone) {
+                    statusText.textContent = '📱 Phone Detected';
+                    statusCard.className = 'status-card alert';
+                } else {
+                    statusText.textContent = '✅ No Phone';
+                    statusCard.className = 'status-card success';
+                }
+
+                // Update streak
+                document.getElementById('streak-value').textContent = result.detections.length > 0 ? '1' : '0';
+                
+                // Update detection count
+                document.getElementById('detection-count').textContent = result.detections.length;
+                
+                // Draw detection boxes
+                this.drawDetections(result.detections);
+                
+                // Log if threshold is met
+                if (result.detections.length > 0) {
+                    this.log(`Detection: ${result.detections.length} objects found`, 'info');
+                }
+            }
+
+            drawDetections(detections) {
+                const ctx = this.overlay.getContext('2d');
+                ctx.clearRect(0, 0, this.overlay.width, this.overlay.height);
+                
+                detections.forEach(detection => {
+                    const bbox = detection.bbox;
+                    const x = bbox.x;
+                    const y = bbox.y;
+                    const w = bbox.w;
+                    const h = bbox.h;
+                    
+                    // Draw bounding box
+                    ctx.strokeStyle = '#ff4444';
+                    ctx.lineWidth = 3;
+                    ctx.strokeRect(x, y, w, h);
+                    
+                    // Draw label
+                    ctx.fillStyle = '#ff4444';
+                    ctx.font = '16px Arial';
+                    ctx.fillText(`${detection.class} (${(detection.confidence * 100).toFixed(1)}%)`, x, y - 10);
+                });
+            }
+
+            async testDetection() {
+                try {
+                    this.log('Testing detection with mock data...', 'info');
+                    
+                    const response = await fetch(`${this.serverUrl}/detect`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ test: true })
+                    });
+                    
+                    const result = await response.json();
+                    this.updateUI(result);
+                    
+                    this.log('Test detection completed', 'info');
+                    
+                } catch (error) {
+                    this.log(`Test error: ${error.message}`, 'error');
+                }
+            }
+
+            updatePerformanceMetrics(latency) {
+                // Update FPS
+                const now = performance.now();
+                this.frameCount++;
+                
+                if (now - this.lastFrameTime >= 1000) {
+                    this.fps = this.frameCount;
+                    this.frameCount = 0;
+                    this.lastFrameTime = now;
+                    document.getElementById('fps').textContent = this.fps;
+                }
+                
+                // Update latency
+                document.getElementById('latency').textContent = `${latency.toFixed(1)}ms`;
+            }
+
+            log(message, type = 'info') {
+                const logConsole = document.getElementById('log-console');
+                const logEntry = document.createElement('div');
+                logEntry.className = `log-entry ${type}`;
+                logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+                
+                logConsole.appendChild(logEntry);
+                logConsole.scrollTop = logConsole.scrollHeight;
+                
+                // Keep only last 50 entries
+                while (logConsole.children.length > 50) {
+                    logConsole.removeChild(logConsole.firstChild);
+                }
+            }
+        }
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new PhoneDetectionUI();
+        });
+    </script>
+</body>
+</html>
