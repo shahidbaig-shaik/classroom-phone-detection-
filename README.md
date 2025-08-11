@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Concept Design Framework Generator
 
 This repository contains a meta-framework for generating instruction prompts and rules that help AI assistants build applications using **Concept Design** - a modular approach where applications are built from independent concepts connected by synchronizations.
@@ -205,3 +206,6 @@ quizzie/
 ---
 
 *This meta-framework enables AI assistants to understand and apply Concept Design principles effectively, resulting in maintainable, modular applications with clear separation of concerns.*
+=======
+# phone-detection-
+>>>>>>> 102a10045f9cffd2699b1a2be22928e954ca2976
