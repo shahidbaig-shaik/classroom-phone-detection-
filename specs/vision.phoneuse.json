@@ -1,0 +1,6 @@
+{
+  "name": "Vision.DownwardFace",
+  "purpose": "Detect faces facing downward (indicating phone use) using local vision server",
+  "inputs": ["imageBase64", "minConfidence", "framesThreshold"],
+  "outputs": ["isLookingDown", "detections", "ts"]
+}
